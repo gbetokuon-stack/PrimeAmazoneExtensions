@@ -220,6 +220,7 @@
 
     // 2. Click Buy Now hoặc Cart fallback
     if (buyNowBtn) {
+      await chrome.storage.local.set({ autoCheckoutPending: Date.now() });
       buyNowBtn.click();
       console.log('[PH] ⚡ Đã click Buy Now!');
     } else if (cartBtn) {
@@ -299,6 +300,7 @@
     const { buyNowBtn, cartBtn } = findBuyButtons();
 
     if (cartBtn) {
+      await chrome.storage.local.set({ autoCheckoutPending: Date.now() });
       cartBtn.click();
       console.log('[PH] 🛒 Đã click Add to Cart!');
     } else if (buyNowBtn) {
@@ -338,9 +340,10 @@
         const pBtn = document.querySelector(sel);
         if (pBtn && pBtn.offsetParent !== null) {
           clearInterval(checkoutTimer);
+          chrome.storage.local.set({ autoCheckoutPending: Date.now() }).catch(() => {});
           pBtn.click();
           console.log('[PH] 🚀 ĐÃ BẤM CHUYỂN SANG THANH TOÁN:', sel);
-          showToast('🎉 ĐÃ CHUYỂN VÀO TRANG THANH TOÁN SẴN SÀNG!');
+          showToast('🚀 ĐANG CHUYỂN VÀO TRANG THANH TOÁN...');
           return;
         }
       }
@@ -374,6 +377,249 @@
         location.href = isJp ? 'https://www.amazon.co.jp/gp/cart/view.html' : 'https://www.amazon.com/gp/cart/view.html';
       }
     }, 400);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // TỰ ĐỘNG HOÀN TẤT CHECKOUT
+  // (Chọn thẻ thanh toán, xác nhận địa chỉ, đặt hàng hoàn toàn tự động)
+  // ═══════════════════════════════════════════════════════════════════
+
+  function isOnCheckoutPage() {
+    return /\/(gp\/buy|checkout|spc|turbo-checkout)/i.test(location.href);
+  }
+
+  // Tự chọn thẻ thanh toán theo 4 số cuối
+  async function autoSelectPaymentCard(last4) {
+    if (!last4) return false;
+
+    // 1. Tìm trong các payment method row
+    const rows = document.querySelectorAll(
+      '.pmts-instrument-row, .payment-option, .pmts-cc-row, ' +
+      '[data-testid*="payment-row"], .apx-compact-payment-option, ' +
+      '.payment-info-section .a-row, #payment-method .a-section'
+    );
+    for (const row of rows) {
+      const txt = (row.textContent || '').replace(/\s+/g, ' ');
+      if (txt.includes(last4)) {
+        const radio = row.querySelector('input[type="radio"]:not(:checked)');
+        if (radio) {
+          radio.click();
+          console.log('[PH-Checkout] ✅ Đã chọn thẻ cuối:', last4);
+          showToast(`💳 Đã chọn thẻ **** ${last4}`);
+          return true;
+        }
+        const clickable = row.querySelector('a, button, .a-declarative');
+        if (clickable) { clickable.click(); showToast(`💳 Đã chọn thẻ **** ${last4}`); return true; }
+      }
+    }
+
+    // 2. Tìm rộng hơn qua text chứa 4 số cuối
+    const spans = document.querySelectorAll(
+      '.pmts-instrument-description span, .a-size-base, .a-size-small, ' +
+      '[class*="last-four"], [class*="lastFour"], .a-text-bold'
+    );
+    for (const el of spans) {
+      if ((el.textContent || '').trim().includes(last4)) {
+        const ancestor = el.closest(
+          '.pmts-instrument-row, .payment-option, tr, li, .a-section, [class*="payment"]'
+        );
+        if (ancestor) {
+          const radio = ancestor.querySelector('input[type="radio"]:not(:checked)');
+          if (radio) { radio.click(); showToast(`💳 Đã chọn thẻ **** ${last4}`); return true; }
+          const link = ancestor.querySelector('a.a-declarative, a[data-action], button');
+          if (link) { link.click(); showToast(`💳 Đã chọn thẻ **** ${last4}`); return true; }
+        }
+      }
+    }
+    return false;
+  }
+
+  // Click nút "Use this payment method"
+  function clickUsePaymentMethod() {
+    const selectors = [
+      '#useThisPaymentMethodButtonId input',
+      '#useThisPaymentMethodButtonId',
+      '#pp-lUP-toggle-text',
+      'input[name="ppw-widgetEvent\\:SetPaymentPlanSelectContinueEvent"]',
+      '.pmts-button-input'
+    ];
+    for (const sel of selectors) {
+      const btn = document.querySelector(sel);
+      if (btn && btn.offsetParent !== null && !btn.disabled) { btn.click(); return true; }
+    }
+    // JP: このお支払い方法を使う
+    const allBtns = document.querySelectorAll('input[type="submit"], button, span.a-button-text');
+    for (const el of allBtns) {
+      const txt = (el.value || el.textContent || '').trim();
+      if (txt === 'このお支払い方法を使う' || txt === 'Use this payment method') {
+        if (el.offsetParent !== null) { (el.closest('.a-button') || el).click(); return true; }
+      }
+    }
+    return false;
+  }
+
+  // Click nút Continue / Ship to this address / Deliver to this address
+  function clickCheckoutContinue() {
+    const selectors = [
+      '#shipToThisAddressButton input',
+      '#shipToThisAddressButton a',
+      '#shipToThisAddressButton',
+      '#continueButton',
+      'input[name="proceedToRetailCheckout"]',
+      '#orderSummaryPrimaryActionBtn input',
+      '.ship-to-this-address a',
+      '#shippingOptionFormId input[type="submit"]',
+      '#continue-top input',
+      '#continue-bottom input',
+      '#deliveryOptionFormId input[type="submit"]'
+    ];
+    for (const sel of selectors) {
+      const btn = document.querySelector(sel);
+      if (btn && btn.offsetParent !== null && !btn.disabled) { btn.click(); return true; }
+    }
+    // JP text scan
+    const allBtns = document.querySelectorAll('input[type="submit"], input[type="button"], button, a, span.a-button-text');
+    for (const el of allBtns) {
+      const txt = (el.value || el.textContent || '').trim();
+      if (
+        txt === '続行' || txt === 'Continue' ||
+        txt === 'お届け先住所を使う' || txt === 'Deliver to this address' ||
+        txt === 'この住所を使う' || txt === 'Ship to this address' ||
+        txt === '配送オプションを選択'
+      ) {
+        if (el.offsetParent !== null) { (el.closest('.a-button') || el).click(); return true; }
+      }
+    }
+    return false;
+  }
+
+  // Bỏ qua popup Prime trial, bảo hiểm, v.v. trên trang checkout
+  function dismissCheckoutPopups() {
+    const selectors = [
+      '#prime-membership-no-498 input', '.prime-nothanks-button',
+      '#prime-no-button', '#no-thanks-button',
+      '#prime-interstitial-nothanks-button', '#siNoCoverage',
+      '#WARRANTY_NO', 'input[name="noThanksButton"]',
+      '#sims-cc-attach-no-button', '#prime-popover-no-thanks',
+      '[data-action="prime-no-thanks"] button', '#prime-upsell-no-thanks',
+      '#attachSiNoCoverage', '#attach-close_sideSheet-link'
+    ];
+    for (const sel of selectors) {
+      const btn = document.querySelector(sel);
+      if (btn && btn.offsetParent !== null) { try { btn.click(); } catch (e) {} }
+    }
+  }
+
+  // Click nút Place Order / 注文を確定する
+  function clickPlaceOrder() {
+    const selectors = [
+      '#submitOrderButtonId', '#bottomSubmitOrderButtonId',
+      '#placeYourOrder input', 'input[name="placeYourOrder1"]',
+      'input[name="placeYourOrder"]', 'input[name="placeYourOrder2"]',
+      '#placeYourOrderButton', '.place-your-order-button input',
+      '.place-order-button input', 'input[name="submit.placeYourOrder"]',
+      '#spc-place-order-button input', '#turbo-checkout-pyo-button input'
+    ];
+    for (const sel of selectors) {
+      const btn = document.querySelector(sel);
+      if (btn && btn.offsetParent !== null && !btn.disabled) { btn.click(); return true; }
+    }
+    // JP/EN text scan
+    const allBtns = document.querySelectorAll('input[type="submit"], input[type="button"], button, span.a-button-text');
+    for (const el of allBtns) {
+      const txt = (el.value || el.textContent || '').trim();
+      if (txt === '注文を確定する' || txt === '注文を確定' || txt === 'Place your order' || txt === 'Place Order') {
+        if (el.offsetParent !== null && !el.disabled) { (el.closest('.a-button') || el).click(); return true; }
+      }
+    }
+    return false;
+  }
+
+  // Pipeline chính: tự động hoàn tất toàn bộ checkout
+  async function autoCompleteCheckout() {
+    if (!isOnCheckoutPage()) return;
+
+    console.log('[PH] 🏁 AUTO-CHECKOUT: Đang xử lý trang thanh toán...');
+    showToast('🏁 ĐANG TỰ ĐỘNG HOÀN TẤT THANH TOÁN...');
+
+    let preferredCard = '';
+    try {
+      const data = await chrome.storage.local.get(['settings']);
+      preferredCard = (data.settings || {}).preferredCard || '';
+    } catch (e) {}
+
+    injectCheckoutStatusBar();
+
+    let attempts = 0;
+    const maxAttempts = 35; // 35 × 700ms ≈ 25 giây
+
+    const loop = setInterval(async () => {
+      attempts++;
+
+      // Bỏ qua popup quảng cáo
+      dismissCheckoutPopups();
+      await dismissAttachPopups();
+
+      // Chọn thẻ ưu tiên
+      if (preferredCard) {
+        await autoSelectPaymentCard(preferredCard);
+      }
+
+      // Click "Use this payment method"
+      clickUsePaymentMethod();
+
+      // Click Continue / Ship to address
+      clickCheckoutContinue();
+
+      // Thử đặt hàng
+      if (clickPlaceOrder()) {
+        clearInterval(loop);
+        showToast('🎉 ĐÃ XÁC NHẬN ĐƠN HÀNG THÀNH CÔNG!');
+        console.log('[PH] 🎉 AUTO-CHECKOUT HOÀN TẤT!');
+        updateCheckoutStatusBar('🎉 ĐÃ ĐẶT HÀNG THÀNH CÔNG!', '#39ff14');
+        chrome.storage.local.remove('autoCheckoutPending').catch(() => {});
+
+        try {
+          chrome.runtime.sendMessage({
+            action: 'PURCHASE_COMPLETE',
+            data: { name: document.title, price: 0, url: location.href }
+          }).catch(() => {});
+        } catch (e) {}
+        return;
+      }
+
+      updateCheckoutStatusBar(`⏳ Đang xử lý checkout... (${attempts}/${maxAttempts})`, '#00d4ff');
+
+      if (attempts >= maxAttempts) {
+        clearInterval(loop);
+        updateCheckoutStatusBar('⏰ Hết thời gian - vui lòng xác nhận thủ công', '#ff6a00');
+        chrome.storage.local.remove('autoCheckoutPending').catch(() => {});
+      }
+    }, 700);
+  }
+
+  function injectCheckoutStatusBar() {
+    if (document.getElementById('ph-checkout-bar')) return;
+    const bar = document.createElement('div');
+    bar.id = 'ph-checkout-bar';
+    bar.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;max-width:900px;margin:0 auto;">
+        <span style="font-size:18px;">💳</span>
+        <span id="ph-checkout-status" style="font-weight:800;font-size:13px;color:#00fff0;letter-spacing:0.5px;font-family:'Rajdhani',sans-serif;">
+          🏁 AUTO-CHECKOUT ĐANG CHẠY...
+        </span>
+      </div>
+    `;
+    bar.style.cssText =
+      'position:fixed;top:0;left:0;right:0;height:44px;background:rgba(10,10,26,0.96);' +
+      'border-bottom:2px solid #00d4ff;box-shadow:0 0 25px rgba(0,212,255,0.3);' +
+      'z-index:9999999;display:flex;align-items:center;padding:0 20px;';
+    document.body.prepend(bar);
+  }
+
+  function updateCheckoutStatusBar(text, color) {
+    const el = document.getElementById('ph-checkout-status');
+    if (el) { el.textContent = text; el.style.color = color || '#00fff0'; }
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -500,6 +746,11 @@
           sendResponse({ success: true });
           break;
 
+        case 'EXECUTE_AUTO_CHECKOUT':
+          autoCompleteCheckout();
+          sendResponse({ success: true });
+          break;
+
         case 'SCRAPE_PRODUCT':
           sendResponse({ success: true, data: scrapeProduct() });
           break;
@@ -531,6 +782,18 @@
     }
 
     listenForCommands();
+
+    // Tự động hoàn tất checkout nếu có flag pending (đặt bởi Buy Now / Add Cart / Proceed)
+    if (isOnCheckoutPage()) {
+      chrome.storage.local.get(['autoCheckoutPending']).then(data => {
+        const pending = data.autoCheckoutPending;
+        // Chỉ chạy nếu flag được đặt trong vòng 2 phút gần đây
+        if (pending && (Date.now() - pending < 120000)) {
+          console.log('[PH] 🏁 Phát hiện checkout page + pending flag → khởi chạy auto-checkout!');
+          setTimeout(() => autoCompleteCheckout(), 1500);
+        }
+      }).catch(() => {});
+    }
   }
 
   // ─── BẢNG ĐIỀU KHIỂN NỔI TRỰC TIẾP TRÊN TRANG SẢN PHẨM AMAZON ───

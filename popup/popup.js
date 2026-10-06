@@ -499,6 +499,26 @@
     if (toggleCart)   toggleCart.addEventListener('click', () => { toggleCart.classList.toggle('active'); saveSetting('autoAddToCart', toggleCart.classList.contains('active')); });
     if (toggleBuy)    toggleBuy.addEventListener('click', () => { toggleBuy.classList.toggle('active'); saveSetting('autoBuy', toggleBuy.classList.contains('active')); });
 
+    const preferredCard     = document.getElementById('preferred-card');
+    const toggleAutoCheckout = document.getElementById('toggle-auto-checkout');
+
+    if (preferredCard) {
+      preferredCard.addEventListener('input', () => {
+        // Chỉ cho phép nhập số
+        preferredCard.value = preferredCard.value.replace(/\D/g, '').slice(0, 4);
+      });
+      preferredCard.addEventListener('change', () => {
+        saveSetting('preferredCard', preferredCard.value.trim());
+      });
+    }
+
+    if (toggleAutoCheckout) {
+      toggleAutoCheckout.addEventListener('click', () => {
+        toggleAutoCheckout.classList.toggle('active');
+        saveSetting('autoCheckout', toggleAutoCheckout.classList.contains('active'));
+      });
+    }
+
     if (minDiscount) minDiscount.addEventListener('change', () => saveSetting('minDiscount', parseInt(minDiscount.value) || 30));
     if (maxPrice)    maxPrice.addEventListener('change', () => saveSetting('maxPrice', parseInt(maxPrice.value) || 50));
     if (maxDaily)    maxDaily.addEventListener('change', () => saveSetting('maxDailySpend', parseInt(maxDaily.value) || 200));
@@ -558,6 +578,8 @@
       if (minDiscount && settings.minDiscount) minDiscount.value = settings.minDiscount;
       if (maxPrice && settings.maxPrice)       maxPrice.value    = settings.maxPrice;
       if (maxDaily && settings.maxDailySpend)  maxDaily.value    = settings.maxDailySpend;
+      if (preferredCard && settings.preferredCard) preferredCard.value = settings.preferredCard;
+      if (toggleAutoCheckout) toggleAutoCheckout.classList.toggle('active', settings.autoCheckout !== false);
 
       // Telegram
       if (teleToken)  teleToken.value  = telegram.botToken || '';
