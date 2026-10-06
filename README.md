@@ -168,3 +168,4 @@ Extension tuân thủ nghiêm ngặt chuẩn **Manifest V3** của Google Chrome
 ## 📄 License
 
 Dự án được phân phối dưới giấy phép [MIT License](LICENSE).
+"# JapanPriceAmazon" 
