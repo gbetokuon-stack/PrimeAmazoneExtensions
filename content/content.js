@@ -868,6 +868,77 @@
 
     listenForCommands();
 
+    // Nhận diện trang xác nhận thêm giỏ (カートに入れました / Added to Cart) hoặc trang Giỏ hàng
+    // và TỰ ĐỘNG BẤM "レジに進む" (Proceed to Checkout) ngay lập tức!
+    function autoProceedFromCartPage() {
+      const isCartRelatedPage = !!(
+        location.pathname.includes('/cart/') ||
+        location.pathname.includes('/gp/cart/') ||
+        location.pathname.includes('/huc/') ||
+        document.querySelector('#sw-atc-buy-box') ||
+        document.querySelector('#hlb-ptc-btn-native') ||
+        document.body.textContent.includes('カートに入れました') ||
+        document.body.textContent.includes('Added to Cart')
+      );
+
+      if (isCartRelatedPage) {
+        chrome.storage.local.get(['autoCheckoutPending']).then(data => {
+          const pending = data.autoCheckoutPending;
+          // Nếu có cờ tự động mua/thêm giỏ trong vòng 2 phút
+          if (pending && (Date.now() - pending < 120000)) {
+            console.log('[PH] 🛒 Đang ở trang Giỏ hàng / Đã thêm giỏ → Tự động bấm 레ジに進む (Tiến hành thanh toán)!');
+            showToast('🚀 Đang tự động bấm Tiến hành thanh toán...');
+
+            let attempts = 0;
+            const timer = setInterval(() => {
+              attempts++;
+              const proceedSelectors = [
+                'input[name="proceedToRetailCheckout"]',
+                '#hlb-ptc-btn-native',
+                '#sc-buy-box-ptc-button input',
+                '#sc-buy-box-ptc-button',
+                '#attach-sidesheet-checkout-button',
+                'a[href*="/gp/buy/spc/handlers/display.html"]',
+                'a[href*="/checkout/enter-checkout"]',
+                '#sw-ptc-form input[type="submit"]',
+                '#sw-ptc-form input',
+                '.a-button-input[aria-labelledby*="ptc"]'
+              ];
+
+              for (const sel of proceedSelectors) {
+                const btn = document.querySelector(sel);
+                if (btn && btn.offsetParent !== null) {
+                  clearInterval(timer);
+                  btn.click();
+                  console.log('[PH] ✅ Đã tự động click nút Tiến hành thanh toán:', sel);
+                  return;
+                }
+              }
+
+              // Quét tìm nút có chữ tiếng Nhật "レジに進む" hoặc tiếng Anh "Proceed to checkout"
+              const allBtns = document.querySelectorAll('input[type="submit"], input[type="button"], button, a, span.a-button-text');
+              for (const el of allBtns) {
+                const txt = (el.value || el.textContent || '').trim();
+                if (txt.includes('レジに進む') || txt.includes('Proceed to checkout')) {
+                  const clickable = el.closest('.a-button') || el;
+                  if (clickable && clickable.offsetParent !== null) {
+                    clearInterval(timer);
+                    clickable.click();
+                    console.log('[PH] ✅ Đã click nút: レジに進む');
+                    return;
+                  }
+                }
+              }
+
+              if (attempts > 15) clearInterval(timer);
+            }, 300);
+          }
+        }).catch(() => {});
+      }
+    }
+
+    autoProceedFromCartPage();
+
     // Tự động hoàn tất checkout nếu có flag pending (đặt bởi Buy Now / Add Cart / Proceed)
     if (isOnCheckoutPage()) {
       chrome.storage.local.get(['autoCheckoutPending']).then(data => {
