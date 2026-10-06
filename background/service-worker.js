@@ -475,14 +475,15 @@ async function startSniper(task) {
         return;
       }
 
-      // Còn <= 15s: BẬT CHẾ ĐỘ TURBO TỐC ĐỘ CAO (500ms/lần)
+      // Còn <= 15s: BẬT CHẾ ĐỘ TURBO TỐC ĐỘ CAO (800ms/lần)
+      // Tần suất 800ms là "điểm vàng": Đủ nhanh để chớp đơn trước người khác nhưng không bị Amazon đánh dấu ddos/spam
       if (!sniperTurboTimer) {
-        console.log('[PH-Sniper] 🔥 TURBO MODE KÍCH HOẠT! Tăng tốc quét mỗi 500ms');
+        console.log('[PH-Sniper] 🔥 TURBO MODE KÍCH HOẠT! Tăng tốc an toàn mỗi 800ms');
         if (sniperIntervalTimer) {
           clearInterval(sniperIntervalTimer);
           sniperIntervalTimer = null;
         }
-        sniperTurboTimer = setInterval(doScan, 500);
+        sniperTurboTimer = setInterval(doScan, 800);
         doScan();
       }
       return;

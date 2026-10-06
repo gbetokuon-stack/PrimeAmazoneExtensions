@@ -604,8 +604,9 @@
     injectCheckoutStatusBar();
 
     let attempts = 0;
-    const maxAttempts = 35; // 35 × 700ms ≈ 25 giây
+    const maxAttempts = 30;
 
+    // Giãn khoảng cách vòng lặp thành 1200ms (1.2s) để tránh bị Amazon chặn vì spam request
     const loop = setInterval(async () => {
       attempts++;
 
@@ -761,8 +762,10 @@
         }, 8000);
       }
 
-      // Tự động reload nhanh hơn (1.5s thay vì 2.5s)
+      // Tự động reload thông minh: thêm độ trễ ngẫu nhiên (jitter) 2500ms - 3500ms
+      // để giả lập hành vi người thật, KHÔNG reload dồn dập khiến server Amazon chặn IP/rate-limit
       if (phSniperReloadTimer) clearTimeout(phSniperReloadTimer);
+      const jitterDelay = 2500 + Math.floor(Math.random() * 1000);
       phSniperReloadTimer = setTimeout(async () => {
         const check = (await chrome.storage.local.get(['sniper'])).sniper;
         if (check?.active) {
@@ -770,7 +773,7 @@
         } else {
           stopSniperOnTab();
         }
-      }, 1500);
+      }, jitterDelay);
       return;
     }
 
