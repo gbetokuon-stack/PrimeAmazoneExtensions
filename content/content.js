@@ -230,12 +230,23 @@
 
     const { buyNowBtn, cartBtn } = findBuyButtons();
 
-    // 2. Click Buy Now hoặc Cart fallback
-    if (buyNowBtn) {
+    const isJp = /amazon\.co\.jp/i.test(location.href);
+
+    // 2. Click Buy Now hoặc Cart
+    // Lưu ý: Trên Amazon Nhật, nhiều hàng limited/game (Pokemon, Figure...) bị cấm 1-Click Buy Now
+    // Do đó nếu có cartBtn, ưu tiên thêm giỏ rồi chuyển thanh toán để đảm bảo 100% không bị văng lỗi!
+    if (isJp && cartBtn) {
+      console.log('[PH] 🗾 Amazon Nhật: Ưu tiên thêm giỏ & chuyển thanh toán (tránh lỗi 1-Click của Amazon JP)');
+      await chrome.storage.local.set({ autoCheckoutPending: Date.now() });
+      cartBtn.click();
+      await executeProceedToCheckout();
+      return;
+    } else if (buyNowBtn) {
       await chrome.storage.local.set({ autoCheckoutPending: Date.now() });
       buyNowBtn.click();
       console.log('[PH] ⚡ Đã click Buy Now!');
     } else if (cartBtn) {
+      await chrome.storage.local.set({ autoCheckoutPending: Date.now() });
       cartBtn.click();
       console.log('[PH] ⚡ Fallback: Đã click Add to Cart, đang chuyển thanh toán...');
       await executeProceedToCheckout();
@@ -402,6 +413,29 @@
     return /\/(gp\/buy|checkout|spc|turbo-checkout)/i.test(location.href);
   }
 
+  // Nhận diện trang lỗi BuyNow của Amazon Nhật (ご迷惑をおかけしています)
+  function isBuyNowErrorPage() {
+    const bodyText = document.body ? document.body.textContent : '';
+    return location.href.includes('/checkout/entry/buynow') ||
+           bodyText.includes('ご迷惑をおかけしています') ||
+           bodyText.includes('Chúng tôi xin lỗi vì sự bất tiện này') ||
+           bodyText.includes('お客様のリクエストの処理中にエラーが発生しました');
+  }
+
+  // Tự phục hồi khi bị Amazon chặn Buy Now: Tự chuyển sang giỏ hàng để thanh toán
+  async function handleBuyNowErrorRecovery() {
+    if (!isBuyNowErrorPage()) return false;
+
+    console.log('[PH] ⚠️ Phát hiện trang lỗi Buy Now! Tự động chuyển sang luồng Giỏ Hàng an toàn...');
+    showToast('⚠️ Lỗi 1-Click Buy Now! Đang tự chuyển sang Giỏ hàng thanh toán...');
+    updateCheckoutStatusBar('⚠️ Lỗi Buy Now → Đang chuyển sang Giỏ hàng...', '#ff6a00');
+
+    await sleep(1200);
+    const isJp = /amazon\.co\.jp/i.test(location.href);
+    location.href = isJp ? 'https://www.amazon.co.jp/gp/cart/view.html' : 'https://www.amazon.com/gp/cart/view.html';
+    return true;
+  }
+
   // Tự chọn thẻ thanh toán theo 4 số cuối
   async function autoSelectPaymentCard(last4) {
     if (!last4) return false;
@@ -553,6 +587,11 @@
   async function autoCompleteCheckout() {
     if (!isOnCheckoutPage()) return;
 
+    // Kiểm tra ngay nếu Amazon đang hiển thị trang lỗi BuyNow
+    if (await handleBuyNowErrorRecovery()) {
+      return;
+    }
+
     console.log('[PH] 🏁 AUTO-CHECKOUT: Đang xử lý trang thanh toán...');
     showToast('🏁 ĐANG TỰ ĐỘNG HOÀN TẤT THANH TOÁN...');
 
@@ -569,6 +608,12 @@
 
     const loop = setInterval(async () => {
       attempts++;
+
+      // Nếu bất ngờ bị redirect sang trang lỗi của Amazon
+      if (await handleBuyNowErrorRecovery()) {
+        clearInterval(loop);
+        return;
+      }
 
       // Bỏ qua popup quảng cáo
       dismissCheckoutPopups();
