@@ -762,10 +762,10 @@
         }, 8000);
       }
 
-      // Tự động reload thông minh: thêm độ trễ ngẫu nhiên (jitter) 2500ms - 3500ms
-      // để giả lập hành vi người thật, KHÔNG reload dồn dập khiến server Amazon chặn IP/rate-limit
+      // Tự động reload an toàn: giãn cách 6000ms - 9000ms (6s - 9s) kèm độ trễ ngẫu nhiên
+      // Giúp giả lập hoàn toàn thao tác người thật F5, chống bị Amazon chặn IP / Rate-limit 100%
       if (phSniperReloadTimer) clearTimeout(phSniperReloadTimer);
-      const jitterDelay = 2500 + Math.floor(Math.random() * 1000);
+      const jitterDelay = 6000 + Math.floor(Math.random() * 3000);
       phSniperReloadTimer = setTimeout(async () => {
         const check = (await chrome.storage.local.get(['sniper'])).sniper;
         if (check?.active) {

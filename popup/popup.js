@@ -158,7 +158,7 @@
 
         const maxPrice       = parseFloat(sniperMaxPrice.value) || 0;
         const priceCondition = sniperPriceCondition ? sniperPriceCondition.value : 'lte';
-        const intervalSec    = parseInt(sniperSpeed.value) || 1;
+        const intervalSec    = parseInt(sniperSpeed.value) || 8;
         const actionType     = sniperAction ? sniperAction.value : 'checkout';
         const targetTime     = sniperTargetTime?.value ? new Date(sniperTargetTime.value).getTime() : 0;
 
