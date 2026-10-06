@@ -318,7 +318,16 @@ async function searchByName(keyword) {
 // ═══════════════════════════════════════════════════════════════════
 // TÍNH NĂNG 3: SNIPER ENGINE (CANH MỞ BÁN / ĐẾM NGƯỢC / TURBO)
 // ═══════════════════════════════════════════════════════════════════
+// TÍNH NĂNG 3: SNIPER ENGINE (CANH MỞ BÁN / ĐẾM NGƯỢC / TURBO)
+// Tối ưu hóa siêu tốc v3.1:
+// - Turbo Mode thật sự (quét cực nhanh 500ms khi còn 15s trước giờ mở bán)
+// - Quét tức thì ngay khi ấn kích hoạt (không chờ đợi interval tick)
+// - Tự phát hiện và khôi phục tab nếu tab bị tắt hoặc crash
+// - Dùng chrome.alarms backup chống Service Worker bị trình duyệt ngủ
+// - Gửi broadcast tiến trình quét realtime về popup UI
+// ═══════════════════════════════════════════════════════════════════
 let sniperIntervalTimer = null;
+let sniperTurboTimer = null;
 
 async function startSniper(task) {
   await stopSniper();
@@ -378,39 +387,120 @@ async function startSniper(task) {
     );
   }
 
-  // Vòng lặp kiểm tra
-  const checkLoop = async () => {
+  // Đảm bảo tab còn sống, nếu người dùng lỡ tay đóng tab thì tự động bật lại
+  async function ensureTabAlive() {
     const cur = (await chrome.storage.local.get(['sniper'])).sniper;
-    if (!cur || !cur.active || !cur.tabId) {
+    if (!cur || !cur.active) return null;
+
+    try {
+      const tabInfo = await chrome.tabs.get(cur.tabId);
+      if (tabInfo) return cur;
+    } catch (e) {
+      console.log('[PH-Sniper] Tab bị đóng, đang mở lại tab mới...');
+      try {
+        const newTab = await chrome.tabs.create({ url: cur.url, active: true });
+        cur.tabId = newTab.id;
+        await chrome.storage.local.set({ sniper: cur });
+        await new Promise(resolve => {
+          const onLoad = (tid, info) => {
+            if (tid === newTab.id && info.status === 'complete') {
+              chrome.tabs.onUpdated.removeListener(onLoad);
+              resolve();
+            }
+          };
+          chrome.tabs.onUpdated.addListener(onLoad);
+          setTimeout(resolve, 6000);
+        });
+        return cur;
+      } catch (err) {
+        console.error('[PH-Sniper] Không thể mở lại tab:', err);
+        return null;
+      }
+    }
+    return cur;
+  }
+
+  // Thực hiện một lượt quét
+  async function doScan() {
+    const cur = await ensureTabAlive();
+    if (!cur || !cur.active) {
       if (sniperIntervalTimer) clearInterval(sniperIntervalTimer);
+      if (sniperTurboTimer) clearInterval(sniperTurboTimer);
       return;
     }
 
-    // Nếu có hẹn giờ và còn > 15s thì chỉ chờ, không reload
-    if (cur.targetTime && cur.targetTime > Date.now()) {
-      const msLeft = cur.targetTime - Date.now();
-      if (msLeft > 15000) return;
-    }
-
     try {
-      chrome.tabs.sendMessage(cur.tabId, {
+      await chrome.tabs.sendMessage(cur.tabId, {
         action: 'EXECUTE_SNIPER_SCAN',
         maxPrice: cur.maxPrice,
         priceCondition: cur.priceCondition || 'lte',
         actionType: cur.actionType || 'checkout'
       }).catch(async () => {
-        try { chrome.tabs.reload(cur.tabId); } catch (e) {}
+        try { await chrome.tabs.reload(cur.tabId); } catch (e) {}
       });
 
       cur.scanCount = (cur.scanCount || 0) + 1;
       cur.lastCheckTime = Date.now();
       await chrome.storage.local.set({ sniper: cur });
+
+      // Cập nhật realtime cho Popup
+      chrome.runtime.sendMessage({
+        action: 'SNIPER_STATUS_CHANGED',
+        sniper: cur
+      }).catch(() => {});
     } catch (e) {
-      console.log('[PH-Sniper] Loop tick error:', e);
+      console.log('[PH-Sniper] Scan error:', e);
     }
+  }
+
+  // Vòng lặp chính quản lý bình thường & chuyển đổi Turbo
+  const mainLoop = async () => {
+    const cur = (await chrome.storage.local.get(['sniper'])).sniper;
+    if (!cur || !cur.active) {
+      if (sniperIntervalTimer) clearInterval(sniperIntervalTimer);
+      if (sniperTurboTimer) clearInterval(sniperTurboTimer);
+      return;
+    }
+
+    // Nếu có hẹn giờ mở bán
+    if (cur.targetTime && cur.targetTime > Date.now()) {
+      const msLeft = cur.targetTime - Date.now();
+
+      // Còn > 15s: chỉ đợi và update countdown
+      if (msLeft > 15000) {
+        chrome.runtime.sendMessage({
+          action: 'SNIPER_STATUS_CHANGED',
+          sniper: cur
+        }).catch(() => {});
+        return;
+      }
+
+      // Còn <= 15s: BẬT CHẾ ĐỘ TURBO TỐC ĐỘ CAO (500ms/lần)
+      if (!sniperTurboTimer) {
+        console.log('[PH-Sniper] 🔥 TURBO MODE KÍCH HOẠT! Tăng tốc quét mỗi 500ms');
+        if (sniperIntervalTimer) {
+          clearInterval(sniperIntervalTimer);
+          sniperIntervalTimer = null;
+        }
+        sniperTurboTimer = setInterval(doScan, 500);
+        doScan();
+      }
+      return;
+    }
+
+    // Hẹn giờ đã tới hoặc không hẹn giờ: quét theo chu kỳ bình thường
+    await doScan();
   };
 
-  sniperIntervalTimer = setInterval(checkLoop, sniperState.intervalSec * 1000);
+  // Đặt alarm keep-alive chống service worker bị ngắt ngầm
+  chrome.alarms.create('sniperKeepAlive', { periodInMinutes: 0.5 });
+
+  // Nếu không hẹn giờ, tiến hành quét ngay sau khi tab load
+  if (!isScheduled) {
+    setTimeout(doScan, 1800);
+  }
+
+  sniperIntervalTimer = setInterval(mainLoop, sniperState.intervalSec * 1000);
   return { success: true, tabId: tab.id };
 }
 
@@ -419,6 +509,12 @@ async function stopSniper() {
     clearInterval(sniperIntervalTimer);
     sniperIntervalTimer = null;
   }
+  if (sniperTurboTimer) {
+    clearInterval(sniperTurboTimer);
+    sniperTurboTimer = null;
+  }
+
+  chrome.alarms.clear('sniperKeepAlive').catch(() => {});
 
   const data = await chrome.storage.local.get(['sniper']);
   const cur = data.sniper || {};
@@ -613,6 +709,26 @@ async function handleBackgroundMessage(msg) {
       return { success: true };
   }
 }
+
+// ── Alarm handler: phục hồi Sniper nếu service worker bị restart ngầm bởi Chrome ──
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === 'sniperKeepAlive') {
+    const data = await chrome.storage.local.get(['sniper']);
+    const cur = data.sniper;
+    if (cur && cur.active && !sniperIntervalTimer && !sniperTurboTimer) {
+      console.log('[PH-Sniper] ♻️ Service worker phục hồi! Khởi động lại Sniper...');
+      await startSniper({
+        url: cur.url,
+        name: cur.name,
+        maxPrice: cur.maxPrice,
+        priceCondition: cur.priceCondition,
+        intervalSec: cur.intervalSec,
+        actionType: cur.actionType,
+        targetTime: cur.targetTime
+      });
+    }
+  }
+});
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   handleBackgroundMessage(msg)

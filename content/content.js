@@ -105,6 +105,18 @@
       }
     }
 
+    // Fallback Amazon Japan: nhận diện ký tự ¥, ￥, hoặc số kèm 円
+    if (!price) {
+      const jpPriceEls = document.querySelectorAll('#price, #newBuyBoxPrice, #price_inside_buybox, .a-color-price, .header-price');
+      for (const el of jpPriceEls) {
+        const m = (el.textContent || '').match(/[¥￥]\s*([\d,]+)/) || (el.textContent || '').match(/([\d,]+)\s*円/);
+        if (m) {
+          price = parseFloat(m[1].replace(/,/g, ''));
+          if (price > 0) break;
+        }
+      }
+    }
+
     let originalPrice = 0;
     const origEl = document.querySelector('.a-text-price .a-offscreen, .priceBlockStrikePriceString, .a-price[data-a-strike] .a-offscreen, .basisPrice .a-offscreen');
     if (origEl) {
@@ -235,9 +247,11 @@
 
     // 3. Tự động click nút Place Order (Xác nhận đặt hàng)
     let placeAttempts = 0;
+    const maxPlaceAttempts = 40; // 40 × 400ms = 16 giây tối đa
     const placeTimer = setInterval(async () => {
       placeAttempts++;
       await dismissAttachPopups();
+      dismissCheckoutPopups();
 
       let placeBtn = document.getElementById('submitOrderButtonId') ||
                      document.querySelector('#placeYourOrder input') ||
@@ -280,7 +294,7 @@
             url: location.href
           }
         }).catch(() => {});
-      } else if (placeAttempts > 18) {
+      } else if (placeAttempts > maxPlaceAttempts) {
         clearInterval(placeTimer);
         console.log('[PH] Dừng chờ Place Order (có thể cần xác nhận bảo mật hoặc OTP)');
       }
@@ -678,8 +692,31 @@
     // 1. Nếu chưa có nút mua
     if (!buyNowBtn && !cartBtn) {
       console.log('[PH-Sniper] Chưa có nút mua, đang chờ...');
-      showToast('⚡ [SNIPER] Đang canh hàng... Chưa mở bán');
 
+      // Dùng MutationObserver theo dõi DOM thay đổi tức thì (Amazon thường hydrate/render nút mua bất chợt)
+      if (!window.__phBuyBoxObserver) {
+        window.__phBuyBoxObserver = new MutationObserver(async () => {
+          const { buyNowBtn: b, cartBtn: c } = findBuyButtons();
+          if (b || c) {
+            window.__phBuyBoxObserver.disconnect();
+            window.__phBuyBoxObserver = null;
+            console.log('[PH-Sniper] 🎯 MutationObserver phát hiện nút mua xuất hiện tức thì!');
+            handleSniperScan(options);
+          }
+        });
+        window.__phBuyBoxObserver.observe(document.body, {
+          childList: true,
+          subtree: true
+        });
+        setTimeout(() => {
+          if (window.__phBuyBoxObserver) {
+            window.__phBuyBoxObserver.disconnect();
+            window.__phBuyBoxObserver = null;
+          }
+        }, 8000);
+      }
+
+      // Tự động reload nhanh hơn (1.5s thay vì 2.5s)
       if (phSniperReloadTimer) clearTimeout(phSniperReloadTimer);
       phSniperReloadTimer = setTimeout(async () => {
         const check = (await chrome.storage.local.get(['sniper'])).sniper;
@@ -688,7 +725,7 @@
         } else {
           stopSniperOnTab();
         }
-      }, 2500);
+      }, 1500);
       return;
     }
 
