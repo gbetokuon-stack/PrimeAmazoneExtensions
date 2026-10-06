@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Price Hunter v3.0</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app">
+    <!-- ═══════ HEADER ═══════ -->
+    <header class="header">
+      <div class="header-top">
+        <div class="logo">
+          <span class="logo-icon">🎯</span>
+          <h1>Price Hunter</h1>
+          <span class="version-tag">v3.0 PRO</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="master-toggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="stats-row">
+        <div class="stat-item"><span class="stat-num" id="stat-bought">0</span><span class="stat-label">Đã mua</span></div>
+        <div class="stat-item"><span class="stat-num" id="stat-coupons">0</span><span class="stat-label">Coupons</span></div>
+        <div class="stat-item"><span class="stat-num" id="stat-saved">$0</span><span class="stat-label">Tiết kiệm</span></div>
+      </div>
+    </header>
+
+    <!-- ═══════ TABS ═══════ -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="sniper">⚡ Canh Mua</button>
+      <button class="tab" data-tab="search">🔍 Tìm & Mua</button>
+      <button class="tab" data-tab="watchlist">👁️ Theo dõi</button>
+      <button class="tab" data-tab="telegram">📱 Tele</button>
+      <button class="tab" data-tab="config">⚙️ Cài đặt</button>
+    </nav>
+
+    <!-- ═══════ TAB 1: CANH MUA (SNIPER) ═══════ -->
+    <div id="tab-sniper" class="tab-content active">
+      <div class="sniper-banner">
+        <div class="sniper-badge">⚡ SNIPER MODE</div>
+        <p class="sniper-subtitle">Dán link sản phẩm Amazon → Bot tự canh → Vừa mở bán là tự xử lý ngay!</p>
+      </div>
+
+      <div class="form-card">
+        <!-- Link sản phẩm -->
+        <label class="input-label">🔗 Link sản phẩm Amazon:</label>
+        <div class="input-with-action">
+          <input type="text" id="sniper-url" placeholder="Dán link Amazon vào đây..." class="big-input">
+          <button id="btn-paste-active-tab" class="action-mini-btn" title="Lấy link từ tab đang mở">📌 Tab</button>
+        </div>
+
+        <!-- Điều kiện giá + Tốc độ quét -->
+        <div class="two-cols">
+          <div class="col">
+            <label class="input-label">💰 Điều kiện giá (<span id="currency-symbol">¥/$</span>):</label>
+            <div style="display:flex;gap:4px;">
+              <select id="sniper-price-condition" class="big-select" style="width:115px;padding:12px 6px;font-size:12px;flex-shrink:0;">
+                <option value="lte" selected>≤ (Nhỏ hơn / Bằng)</option>
+                <option value="gte">≥ (Lớn hơn / Bằng)</option>
+                <option value="any">Bất kỳ giá nào</option>
+              </select>
+              <input type="number" id="sniper-max-price" placeholder="Mức giá (VD: 5500)" class="big-input" style="flex:1;">
+            </div>
+          </div>
+          <div class="col" style="max-width:130px;">
+            <label class="input-label">⏱️ Tốc độ:</label>
+            <select id="sniper-speed" class="big-select">
+              <option value="1" selected>⚡ 1s (Cực nhanh)</option>
+              <option value="2">⚡ 2s (Nhanh)</option>
+              <option value="5">⚡ 5s (Bình thường)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Hẹn giờ mở bán -->
+        <div class="form-row">
+          <label class="input-label">⏰ Hẹn giờ mở bán (tùy chọn):</label>
+          <div class="input-with-action">
+            <input type="datetime-local" id="sniper-target-time" class="big-input">
+            <button id="btn-clear-target-time" class="action-mini-btn">Xóa</button>
+          </div>
+          <div class="form-hint">Để trống = canh ngay. Đặt giờ = đếm ngược, tăng tốc trước 15s.</div>
+        </div>
+
+        <!-- Chế độ xử lý -->
+        <div class="form-row">
+          <label class="input-label">🎯 Khi có hàng thì làm gì:</label>
+          <select id="sniper-action" class="big-select">
+            <option value="cart">🛒 Chỉ thêm vào giỏ hàng</option>
+            <option value="checkout" selected>🚀 Thêm giỏ + Chuyển đến trang thanh toán</option>
+            <option value="buy">⚡ Tự động mua luôn 100% (Place Order)</option>
+          </select>
+        </div>
+
+        <!-- NÚT CHÍNH -->
+        <button id="btn-start-sniper" class="huge-btn sniper-start">🚀 BẬT CANH HÀNG</button>
+        <button id="btn-stop-sniper" class="huge-btn sniper-stop" style="display:none">🛑 DỪNG CANH HÀNG</button>
+      </div>
+
+      <!-- Trạng thái Sniper -->
+      <div class="sniper-live-card">
+        <div class="radar-circle" id="sniper-radar"></div>
+        <div class="sniper-live-info">
+          <div class="sniper-state-text" id="sniper-state-title">💤 Đang nghỉ</div>
+          <div class="sniper-state-sub" id="sniper-state-details">Chưa canh sản phẩm nào. Dán link và bấm nút!</div>
+          <div id="sniper-countdown" class="countdown-text" style="display:none">⏱️ --:--:--</div>
+        </div>
+      </div>
+
+      <!-- Mẹo Amazon Nhật -->
+      <div class="tip-box">
+        💡 <strong>Amazon Nhật (.co.jp):</strong> Nếu thấy "Cannot be shipped" → Đổi địa chỉ giao sang Nhật (Zip: 100-0001) để nút mua hiện ra.
+      </div>
+    </div>
+
+    <!-- ═══════ TAB 2: TÌM GIÁ RẺ NHẤT ═══════ -->
+    <div id="tab-search" class="tab-content">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Nhập tên sản phẩm hoặc dán link Amazon..." class="big-input">
+        <button id="btn-search" class="big-btn green">🔍 TÌM GIÁ RẺ NHẤT</button>
+      </div>
+
+      <div id="search-results" class="search-results">
+        <div class="empty-msg">
+          <div class="empty-icon-big">🔍</div>
+          <p>Nhập tên sản phẩm để tìm giá tốt nhất</p>
+          <p class="hint">Bấm vào sản phẩm ưng ý → Tự thêm giỏ & thanh toán ngay!</p>
+        </div>
+      </div>
+
+      <div id="search-loading" class="loading-box" style="display:none">
+        <div class="neon-spinner"></div>
+        <p>Đang quét giá trên Amazon...</p>
+      </div>
+    </div>
+
+    <!-- ═══════ TAB 3: THEO DÕI GIÁ ═══════ -->
+    <div id="tab-watchlist" class="tab-content">
+      <div id="watchlist-container">
+        <div class="empty-msg"><div class="empty-icon-big">👁️</div><p>Chưa theo dõi sản phẩm nào</p></div>
+      </div>
+    </div>
+
+
+
+    <!-- ═══════ TAB 5: TELEGRAM ═══════ -->
+    <div id="tab-telegram" class="tab-content">
+      <div class="section-title">🤖 KẾT NỐI TELEGRAM BOT</div>
+      <div class="tele-status-card">
+        <div class="tele-status-dot" id="tele-dot"></div>
+        <span id="tele-status-text">Chưa kết nối</span>
+      </div>
+      <div class="form-group">
+        <label>🔑 Bot Token:</label>
+        <input type="text" id="tele-token" placeholder="123456:ABC-DEF..." class="big-input">
+      </div>
+      <div class="form-group">
+        <label>💬 Chat ID:</label>
+        <input type="text" id="tele-chat-id" placeholder="-100123456789" class="big-input">
+      </div>
+      <div class="tele-toggles">
+        <label class="check-row"><input type="checkbox" id="tele-notify-deals" checked> 🔥 Báo deals giảm sâu</label>
+        <label class="check-row"><input type="checkbox" id="tele-notify-buy" checked> 🛒 Báo khi mua / Sniper giật đơn</label>
+        <label class="check-row"><input type="checkbox" id="tele-notify-price-drop" checked> 📉 Báo khi giá giảm</label>
+        <label class="check-row"><input type="checkbox" id="tele-notify-target" checked> 🎯 Báo khi đạt giá mục tiêu</label>
+      </div>
+      <div class="btn-row">
+        <button id="btn-tele-save" class="big-btn green">💾 LƯU</button>
+        <button id="btn-tele-test" class="big-btn blue">📨 THỬ</button>
+        <button id="btn-tele-disconnect" class="big-btn red">❌ NGẮT</button>
+      </div>
+      <div class="guide-box">
+        <p><strong>Cách lấy Token & Chat ID:</strong></p>
+        <ol>
+          <li>Telegram → <code>@BotFather</code> → <code>/newbot</code> → lấy <strong>Token</strong></li>
+          <li><code>@userinfobot</code> → Start → lấy <strong>Chat ID</strong></li>
+          <li>Dán vào trên và nhấn <strong>LƯU</strong></li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- ═══════ TAB 6: CÀI ĐẶT ═══════ -->
+    <div id="tab-config" class="tab-content">
+      <div class="section-title">🤖 TỰ ĐỘNG</div>
+      <div class="auto-grid">
+        <button class="auto-toggle active" id="toggle-clip">
+          <span class="auto-icon">🎫</span>
+          <span class="auto-label">Clip Coupon</span>
+        </button>
+        <button class="auto-toggle active" id="toggle-cart">
+          <span class="auto-icon">🛒</span>
+          <span class="auto-label">Thêm Giỏ</span>
+        </button>
+        <button class="auto-toggle" id="toggle-buy">
+          <span class="auto-icon">🤖</span>
+          <span class="auto-label">Tự Mua</span>
+        </button>
+      </div>
+
+      <div class="settings-inline">
+        <div class="setting-row">
+          <span>Giá max tự mua:</span>
+          <div class="setting-val">$<input type="number" id="max-price" value="50" class="small-input"></div>
+        </div>
+        <div class="setting-row">
+          <span>Chi tiêu max/ngày:</span>
+          <div class="setting-val">$<input type="number" id="max-daily" value="200" class="small-input"></div>
+        </div>
+      </div>
+
+      <div class="section-title">📜 LỊCH SỬ MUA</div>
+      <div id="history-container">
+        <div class="empty-msg"><p>Chưa có lịch sử</p></div>
+      </div>
+
+      <div class="btn-row" style="margin-top:12px">
+        <button id="btn-export" class="big-btn blue">📤 XUẤT</button>
+        <button id="btn-clear" class="big-btn red">🗑️ XÓA HẾT</button>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

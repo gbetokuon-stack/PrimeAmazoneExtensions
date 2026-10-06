@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Price Hunter - Cài Đặt</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --neon-pink: #ff2d95;
+      --neon-blue: #00d4ff;
+      --neon-cyan: #00fff0;
+      --neon-green: #39ff14;
+      --neon-orange: #ff6a00;
+      --neon-red: #ff073a;
+      --bg1: #0a0a1a;
+      --bg2: #0d0d25;
+      --bg3: #111133;
+      --text1: #e0e0ff;
+      --text2: #8888bb;
+      --text3: #555588;
+      --border: #1a1a44;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Rajdhani', sans-serif;
+      background: var(--bg1);
+      color: var(--text1);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 40px 20px;
+      background-image:
+        radial-gradient(ellipse at 20% 50%, rgba(0,212,255,0.03) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(255,45,149,0.03) 0%, transparent 60%);
+    }
+
+    .container { max-width: 700px; width: 100%; }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .header h1 {
+      font-family: 'Orbitron', monospace;
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      background: linear-gradient(135deg, var(--neon-pink), var(--neon-blue), var(--neon-cyan));
+      background-size: 200% 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: grad 3s ease infinite;
+      margin-bottom: 8px;
+    }
+
+    @keyframes grad {
+      0%,100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    .header p { color: var(--text3); font-size: 14px; }
+
+    .section {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .section::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 100%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--neon-blue), transparent);
+      animation: scan 4s linear infinite;
+    }
+
+    @keyframes scan { 0%{left:-100%} 100%{left:200%} }
+
+    .section h2 {
+      font-family: 'Orbitron', monospace;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--neon-blue);
+      text-shadow: 0 0 10px rgba(0,212,255,0.3);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .form-group { margin-bottom: 16px; }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      color: var(--text2);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 10px 14px;
+      background: rgba(0,212,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--neon-cyan);
+      font-size: 14px;
+      font-family: 'Rajdhani', sans-serif;
+      outline: none;
+      transition: 0.3s;
+    }
+
+    .form-group input:focus, .form-group select:focus {
+      border-color: var(--neon-blue);
+      box-shadow: 0 0 15px rgba(0,212,255,0.2);
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+    }
+
+    .check-row input[type="checkbox"] {
+      width: 18px; height: 18px;
+      accent-color: var(--neon-cyan);
+    }
+
+    .check-row label { font-size: 14px; cursor: pointer; }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Orbitron', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--neon-blue), var(--neon-cyan));
+      color: var(--bg1);
+      box-shadow: 0 0 15px rgba(0,212,255,0.3);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 0 30px rgba(0,212,255,0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--bg1);
+      border: 1px solid var(--neon-blue);
+      color: var(--neon-blue);
+    }
+
+    .btn-secondary:hover { box-shadow: 0 0 15px rgba(0,212,255,0.2); }
+
+    .save-bar {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 24px;
+    }
+
+    .toast {
+      position: fixed;
+      top: 20px; right: 20px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      background: var(--neon-green);
+      color: var(--bg1);
+      font-weight: 700;
+      transform: translateX(200%);
+      transition: transform 0.3s;
+      z-index: 1000;
+      box-shadow: 0 0 20px rgba(57,255,20,0.5);
+    }
+
+    .toast.show { transform: translateX(0); }
+
+    .info-box {
+      padding: 14px 16px;
+      background: rgba(0,212,255,0.05);
+      border: 1px solid rgba(0,212,255,0.15);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.8;
+    }
+
+    .info-box strong { color: var(--neon-cyan); }
+
+    .info-box code {
+      background: rgba(57,255,20,0.1);
+      padding: 1px 6px;
+      border-radius: 3px;
+      color: var(--neon-green);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎯 PRICE HUNTER</h1>
+      <p>Cấu hình tự động mua hàng & Telegram Bot</p>
+    </div>
+
+    <div class="section">
+      <h2>🔔 Thông Báo</h2>
+      <div class="check-row"><input type="checkbox" id="opt-notify-drop" checked><label for="opt-notify-drop">Thông báo khi giá giảm</label></div>
+      <div class="check-row"><input type="checkbox" id="opt-notify-target" checked><label for="opt-notify-target">Thông báo khi đạt giá mục tiêu</label></div>
+      <div class="check-row"><input type="checkbox" id="opt-notify-buy" checked><label for="opt-notify-buy">Thông báo khi tự động mua</label></div>
+    </div>
+
+    <div class="section">
+      <h2>🤖 Tự Động Mua</h2>
+      <div class="check-row"><input type="checkbox" id="opt-autobuy-global"><label for="opt-autobuy-global">Bật tự động mua (toàn cục)</label></div>
+      <div class="form-group">
+        <label>Giới hạn chi tiêu tự động (USD/ngày)</label>
+        <input type="number" id="opt-max-spend" value="200" min="0" step="10">
+      </div>
+      <div class="info-box">
+        ⚠️ <strong>Lưu ý:</strong> Đảm bảo bạn đã đăng nhập Amazon, cài đặt địa chỉ giao hàng mặc định, và phương thức thanh toán.
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>📱 Telegram Bot</h2>
+      <div class="form-group">
+        <label>🔑 Bot Token</label>
+        <input type="text" id="opt-tele-token" placeholder="123456:ABC-DEF...">
+      </div>
+      <div class="form-group">
+        <label>💬 Chat ID</label>
+        <input type="text" id="opt-tele-chatid" placeholder="-100123456789">
+      </div>
+      <div class="check-row"><input type="checkbox" id="opt-tele-deals" checked><label for="opt-tele-deals">Gửi thông báo deals giảm sâu</label></div>
+      <div class="check-row"><input type="checkbox" id="opt-tele-buy" checked><label for="opt-tele-buy">Gửi thông báo khi tự mua</label></div>
+      <div class="check-row"><input type="checkbox" id="opt-tele-drop" checked><label for="opt-tele-drop">Gửi thông báo khi giá giảm</label></div>
+      <div class="check-row"><input type="checkbox" id="opt-tele-target" checked><label for="opt-tele-target">Gửi thông báo đạt giá mục tiêu</label></div>
+      <div class="info-box">
+        <strong>Hướng dẫn:</strong><br>
+        1. Mở Telegram → tìm <code>@BotFather</code> → gửi <code>/newbot</code><br>
+        2. Nhận <strong>Bot Token</strong><br>
+        3. Tìm <code>@userinfobot</code> → nhận <strong>Chat ID</strong><br>
+        4. Dán ở trên → Lưu
+      </div>
+    </div>
+
+    <div class="save-bar">
+      <button class="btn btn-secondary" id="btn-reset">Đặt lại mặc định</button>
+      <button class="btn btn-primary" id="btn-save">💾 LƯU CÀI ĐẶT</button>
+    </div>
+
+    <div class="toast" id="toast">✅ Đã lưu!</div>
+  </div>
+
+  <script>
+    chrome.storage.local.get(['settings', 'telegram'], (data) => {
+      const s = data.settings || {};
+      const t = data.telegram || {};
+
+      document.getElementById('opt-notify-drop').checked = s.notifyPriceDrop !== false;
+      document.getElementById('opt-notify-target').checked = s.notifyTarget !== false;
+      document.getElementById('opt-notify-buy').checked = s.notifyBuy !== false;
+      document.getElementById('opt-autobuy-global').checked = s.autoBuy || false;
+      document.getElementById('opt-max-spend').value = s.maxDailySpend || 200;
+
+      document.getElementById('opt-tele-token').value = t.botToken || '';
+      document.getElementById('opt-tele-chatid').value = t.chatId || '';
+      document.getElementById('opt-tele-deals').checked = t.notifyDeals !== false;
+      document.getElementById('opt-tele-buy').checked = t.notifyBuy !== false;
+      document.getElementById('opt-tele-drop').checked = t.notifyPriceDrop !== false;
+      document.getElementById('opt-tele-target').checked = t.notifyTarget !== false;
+    });
+
+    document.getElementById('btn-save').addEventListener('click', () => {
+      const settings = {
+        notifyPriceDrop: document.getElementById('opt-notify-drop').checked,
+        notifyTarget: document.getElementById('opt-notify-target').checked,
+        notifyBuy: document.getElementById('opt-notify-buy').checked,
+        autoBuy: document.getElementById('opt-autobuy-global').checked,
+        maxDailySpend: parseFloat(document.getElementById('opt-max-spend').value) || 200,
+      };
+
+      const token = document.getElementById('opt-tele-token').value.trim();
+      const chatId = document.getElementById('opt-tele-chatid').value.trim();
+
+      const telegram = {
+        botToken: token,
+        chatId: chatId,
+        connected: !!(token && chatId),
+        notifyDeals: document.getElementById('opt-tele-deals').checked,
+        notifyBuy: document.getElementById('opt-tele-buy').checked,
+        notifyPriceDrop: document.getElementById('opt-tele-drop').checked,
+        notifyTarget: document.getElementById('opt-tele-target').checked
+      };
+
+      chrome.storage.local.get(['settings'], (data) => {
+        const merged = { ...(data.settings || {}), ...settings };
+        chrome.storage.local.set({ settings: merged, telegram }, () => {
+          const toast = document.getElementById('toast');
+          toast.classList.add('show');
+          setTimeout(() => toast.classList.remove('show'), 2500);
+        });
+      });
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      document.getElementById('opt-notify-drop').checked = true;
+      document.getElementById('opt-notify-target').checked = true;
+      document.getElementById('opt-notify-buy').checked = true;
+      document.getElementById('opt-autobuy-global').checked = false;
+      document.getElementById('opt-max-spend').value = 200;
+      document.getElementById('opt-tele-token').value = '';
+      document.getElementById('opt-tele-chatid').value = '';
+    });
+  </script>
+</body>
+</html>
